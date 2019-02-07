@@ -51,8 +51,8 @@ type Message struct {
 }
 
 func NewEventMessage(event *types.Event) *Message {
-	message := &Message{ThemeColor: getColor(event), Text: fmt.Sprintf("(%s) %s: %s", getMessageStatus(event), event.Check.Name, event.Check.Output), Channel: channel} // TODO support channel from annotation
-	message.Sections = append(message.Sections, Section{"Nothing for now"})
+	message := &Message{ThemeColor: getColor(event), Text: getMessageStatus(event), Channel: channel} // TODO support channel from annotation
+	message.Sections = append(message.Sections, Section{fmt.Sprintf("%s: %s", event.Check.Name, event.Check.Output)})
 	message.PotentialAction = append(message.PotentialAction, PotentialAction{Type: "OpenUri", Name: "View in Sensu"})
 	message.PotentialAction[0].Targets = append(message.PotentialAction[0].Targets, Target{"default", getLink(event)})
 
