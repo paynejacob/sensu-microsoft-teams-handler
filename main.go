@@ -45,7 +45,7 @@ type Message struct {
 	Text       string `json:"text"`
 	Channel    string `json:"channel"`
 
-	Sections []Section `json:"section"`
+	Sections []Section `json:"sections"`
 
 	PotentialAction []PotentialAction
 }
