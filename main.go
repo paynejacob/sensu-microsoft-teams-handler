@@ -18,20 +18,18 @@ var (
 	webhookURL    string
 	channel       string
 	messagePrefix string
-	botName       string
 	iconURL       string
 	actionName    string
-	dashboard 	  url.URL
+	dashboard     string
 	stdin         *os.File
 )
 
 type Section struct {
-	ActivityImage string `json:"activityImage"`
 	Text string `json:"text"`
 }
 
 type Target struct {
-	OS string `json:"os"`
+	OS  string `json:"os"`
 	URI string `json:"uri"`
 }
 
@@ -39,14 +37,13 @@ type PotentialAction struct {
 	Type string `json:"@type"`
 	Name string `json:"name"`
 
-	Targets[]Target `json:"targets"`
+	Targets []Target `json:"targets"`
 }
 
 type Message struct {
 	ThemeColor string `json:"themeColor"`
-	Text string `json:"text"`
-	Channel string `json:"channel"`
-	Username string `json:"username"`
+	Text       string `json:"text"`
+	Channel    string `json:"channel"`
 
 	Sections []Section `json:"section"`
 
@@ -54,24 +51,77 @@ type Message struct {
 }
 
 func NewEventMessage(event *types.Event) *Message {
-	var eventPath, _ = url.Parse(event.URIPath())
-	var eventLink = dashboard.ResolveReference(eventPath).String()
-
-	message := &Message{ThemeColor: "red", Text: eventLink, Channel: channel, Username: botName} // todo color
-	message.Sections = append(message.Sections, Section{iconURL, event.Check.Output})
+	message := &Message{ThemeColor: getColor(event), Text: getMessageStatus(event), Channel: channel} // TODO support channel from annotation
+	message.Sections = append(message.Sections, Section{event.Check.Output})
 	message.PotentialAction = append(message.PotentialAction, PotentialAction{Type: "OpenUri", Name: "View in Sensu"})
-	message.PotentialAction[0].Targets = append(message.PotentialAction[0].Targets, Target{"default", eventLink})
+	message.PotentialAction[0].Targets = append(message.PotentialAction[0].Targets, Target{"default", getLink(event)})
 
 	return message
 }
 
+func getLink(event *types.Event) string {
+	var (
+		dashboardUrl *url.URL
+		eventPath    *url.URL
+		err          error
+	)
 
-
-func main() {
-	rootCmd := configureRootCommand()
-	if err := rootCmd.Execute(); err != nil {
-		log.Fatal(err.Error())
+	if dashboardUrl, err = url.Parse(dashboard); err != nil {
+		return ""
 	}
+
+	if eventPath, err = url.Parse(event.URIPath()); err != nil {
+		return ""
+	}
+
+	return dashboardUrl.ResolveReference(eventPath).String()
+}
+
+func getColor(event *types.Event) string {
+	switch event.Check.Status {
+	case 0:
+		return "#36A64F"
+	case 1:
+		return "#FFCC00"
+	case 2:
+		return "#FF0000"
+	default:
+		return "#6600CC"
+	}
+}
+
+func getMessageStatus(event *types.Event) string {
+	switch event.Check.Status {
+	case 0:
+		return "RESOLVED"
+	case 1:
+		return "WARNING"
+	case 2:
+		return "CRITICAL"
+	default:
+		return "UNKNOWN"
+	}
+}
+
+func sendMessage(event *types.Event) error {
+	var message = NewEventMessage(event)
+	var MessageString, _ = json.Marshal(message)
+
+	req, err := http.NewRequest("POST", webhookURL, bytes.NewBuffer(MessageString))
+	req.Header.Set("Content-Type", "application/json")
+
+	client := &http.Client{}
+	resp, err := client.Do(req)
+	if err != nil {
+		panic(err)
+	}
+	defer func() {
+		if err := resp.Body.Close(); err != nil {
+			panic(err)
+		}
+	}() // TODO: assert 200
+
+	return nil
 }
 
 func configureRootCommand() *cobra.Command {
@@ -99,12 +149,6 @@ func configureRootCommand() *cobra.Command {
 		"",
 		"optional prefix - can be used for mentions")
 
-	cmd.Flags().StringVarP(&botName,
-		"bot-name",
-		"b",
-		"",
-		"optional bot name, defaults to webhook defined")
-
 	cmd.Flags().StringVarP(&iconURL,
 		"icon-url",
 		"i",
@@ -117,7 +161,7 @@ func configureRootCommand() *cobra.Command {
 		"View in Sensu",
 		"The text that will be displayed on screen for the action")
 
-	cmd.Flags().StringVarP(&actionName,
+	cmd.Flags().StringVarP(&dashboard,
 		"dashboard",
 		"d",
 		"",
@@ -127,7 +171,6 @@ func configureRootCommand() *cobra.Command {
 }
 
 func run(cmd *cobra.Command, args []string) error {
-	log.Print("enter run")
 	if len(args) != 0 {
 		_ = cmd.Help()
 		return errors.New("invalid argument(s) received")
@@ -168,19 +211,9 @@ func run(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
-func sendMessage(event *types.Event) error {
-	var message = NewEventMessage(event)
-	var MessageString, _ = json.Marshal(message)
-
-	req, err := http.NewRequest("POST", webhookURL, bytes.NewBuffer(MessageString))
-	req.Header.Set("Content-Type", "application/json")
-
-	client := &http.Client{}
-	resp, err := client.Do(req)
-	if err != nil {
-		panic(err)
+func main() {
+	rootCmd := configureRootCommand()
+	if err := rootCmd.Execute(); err != nil {
+		log.Fatal(err.Error())
 	}
-	defer func() { if err := resp.Body.Close(); err != nil {panic(err)} }()  // TODO: assert 200
-
-	return nil
 }
