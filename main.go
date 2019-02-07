@@ -52,7 +52,7 @@ type Message struct {
 
 func NewEventMessage(event *types.Event) *Message {
 	message := &Message{ThemeColor: getColor(event), Text: getMessageStatus(event), Channel: channel} // TODO support channel from annotation
-	message.Sections = append(message.Sections, Section{event.Check.Output})
+	message.Sections = append(message.Sections, Section{event.Check.Name})
 	message.PotentialAction = append(message.PotentialAction, PotentialAction{Type: "OpenUri", Name: "View in Sensu"})
 	message.PotentialAction[0].Targets = append(message.PotentialAction[0].Targets, Target{"default", getLink(event)})
 
@@ -70,7 +70,7 @@ func getLink(event *types.Event) string {
 		return ""
 	}
 
-	if eventPath, err = url.Parse(event.URIPath()); err != nil {
+	if eventPath, err = url.Parse(event.Check.URIPath()); err != nil {
 		return ""
 	}
 
