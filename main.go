@@ -52,9 +52,9 @@ type Message struct {
 
 func NewEventMessage(event *types.Event) *Message {
 	message := &Message{ThemeColor: getColor(event), Text: getMessageStatus(event), Channel: channel} // TODO support channel from annotation
-	message.Sections = append(message.Sections, Section{fmt.Sprintf(event.Entity.System.Hostname)})
-	message.Sections = append(message.Sections, Section{fmt.Sprintf(event.Check.Name)})
-	message.Sections = append(message.Sections, Section{fmt.Sprintf(event.Check.Output)})
+	message.Sections = append(message.Sections, Section{fmt.Sprintf("HOSTNAME: \"%s\"", event.Entity.System.Hostname)})
+	message.Sections = append(message.Sections, Section{fmt.Sprintf("CHECK: \"%s\"", event.Check.Name)})
+	message.Sections = append(message.Sections, Section{fmt.Sprintf("OUTPUT: \"%s\"", event.Check.Output)})
 	message.PotentialAction = append(message.PotentialAction, PotentialAction{Type: "OpenUri", Name: "View in Sensu"})
 	message.PotentialAction[0].Targets = append(message.PotentialAction[0].Targets, Target{"default", getLink(event)})
 
